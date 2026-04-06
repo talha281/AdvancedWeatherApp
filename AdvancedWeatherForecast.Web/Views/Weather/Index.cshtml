@@ -1,0 +1,225 @@
+@model AdvancedWeatherForecast.Web.Models.ViewModels.WeatherDashboardViewModel
+@using System.Globalization
+
+@{
+    ViewData["Title"] = "Weather Dashboard";
+
+    var location = Model.SelectedLocation?.DisplayName ?? Model.SearchTerm;
+    var current = Model.Current;
+    var highlights = Model.Highlights;
+    var hourly = Model.HourlyForecast.Take(8).ToList();
+    var daily = Model.DailyForecast.Take(7).ToList();
+    var lastUpdated = Model.LastUpdated?.ToLocalTime().ToString("ddd, MMM d · h:mm tt", CultureInfo.InvariantCulture)
+        ?? DateTime.Now.ToString("ddd, MMM d · h:mm tt", CultureInfo.InvariantCulture);
+    var subtitle = current is null
+        ? "Search any city to explore live conditions, an hourly outlook, and the week ahead."
+        : $"{current.Condition.Description} with {Math.Round(current.TemperatureCelsius)} C right now in {location}.";
+}
+
+<div class="weather-dashboard">
+    <section class="hero-panel panel-surface">
+        <div class="hero-copy">
+            <div class="eyebrow-row">
+                <span class="eyebrow-pill">Advanced forecast</span>
+                <span class="muted-copy">@lastUpdated</span>
+            </div>
+
+            <h1 class="hero-title">Plan your week with a forecast built for real decisions.</h1>
+            <p class="hero-summary">@subtitle</p>
+
+            <form class="search-bar" method="get" asp-controller="Weather" asp-action="Index">
+                <span class="search-icon" aria-hidden="true">Search</span>
+                <input class="search-input" type="search" name="city" value="@Model.SearchTerm" placeholder="Search a city, region, or postcode" aria-label="Search city" />
+                <button class="btn btn-weather" type="submit">Search</button>
+            </form>
+
+            <div class="quick-actions" aria-label="Quick actions">
+                <button class="chip-button" type="button" data-scroll-target="#hourly">Hourly</button>
+                <button class="chip-button" type="button" data-scroll-target="#daily">Daily</button>
+                <a class="chip-button chip-button-muted text-decoration-none" asp-controller="Weather" asp-action="Index">Refresh</a>
+            </div>
+        </div>
+
+        <div class="hero-weather-card">
+            <div class="hero-weather-glow"></div>
+            <div class="hero-weather-header">
+                <div>
+                    <p class="section-label mb-1">Current conditions</p>
+                    <h2 class="weather-location">@location</h2>
+                </div>
+                <span class="condition-badge">@(current?.Condition.Description ?? "Awaiting data")</span>
+            </div>
+
+            <div class="weather-visual">
+                <span class="weather-icon" aria-hidden="true">@(current?.Condition.Icon ?? "Sky")</span>
+                <div>
+                    <div class="temperature-value">@(current is null ? "--" : $"{Math.Round(current.TemperatureCelsius)} C")</div>
+                    <p class="temperature-note">Feels like @(current is null ? "--" : $"{Math.Round(current.ApparentTemperatureCelsius)} C")</p>
+                </div>
+            </div>
+
+            <div class="high-low-row">
+                <div>
+                    <span class="metric-label">High</span>
+                    <strong>@(daily.Count == 0 ? "--" : $"{Math.Round(daily[0].MaxTemperatureCelsius)} C")</strong>
+                </div>
+                <div>
+                    <span class="metric-label">Low</span>
+                    <strong>@(daily.Count == 0 ? "--" : $"{Math.Round(daily[0].MinTemperatureCelsius)} C")</strong>
+                </div>
+                <div>
+                    <span class="metric-label">Timezone</span>
+                    <strong>@(Model.SelectedLocation?.Timezone ?? "--")</strong>
+                </div>
+            </div>
+
+            <div class="hero-mini-grid">
+                <div class="mini-metric">
+                    <span>Humidity</span>
+                    <strong>@(highlights?.HumidityPercent is null ? "--" : $"{highlights.HumidityPercent}%")</strong>
+                </div>
+                <div class="mini-metric">
+                    <span>Wind</span>
+                    <strong>@(highlights?.WindSpeedKph is null ? "--" : $"{Math.Round(highlights.WindSpeedKph.Value)} km/h")</strong>
+                </div>
+                <div class="mini-metric">
+                    <span>Pressure</span>
+                    <strong>@(highlights?.PressureHpa is null ? "--" : $"{Math.Round(highlights.PressureHpa.Value)} hPa")</strong>
+                </div>
+                <div class="mini-metric">
+                    <span>Visibility</span>
+                    <strong>@(highlights?.VisibilityKm is null ? "--" : $"{highlights.VisibilityKm:0.#} km")</strong>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <section class="section-grid">
+        <article id="current" class="panel-surface content-card">
+            <div class="section-heading">
+                <div>
+                    <p class="section-label">Forecast snapshot</p>
+                    <h3>Today at a glance</h3>
+                </div>
+                <span class="pill-tag">Live outlook</span>
+            </div>
+
+            @if (!string.IsNullOrWhiteSpace(Model.ErrorMessage))
+            {
+                <div class="error-state" data-dismissible="true">
+                    <div>
+                        <p class="error-title">Forecast unavailable</p>
+                        <p class="error-message">@Model.ErrorMessage</p>
+                    </div>
+                    <button class="close-button" type="button" data-dismiss-alert aria-label="Dismiss error">x</button>
+                </div>
+            }
+            else
+            {
+                <div class="alert-list">
+                    @foreach (var alert in Model.Alerts)
+                    {
+                        <div class="alert-item" data-dismissible="true">
+                            <div>
+                                <p class="alert-title">Forecast insight</p>
+                                <p class="alert-message">@alert</p>
+                            </div>
+                            <button class="close-button" type="button" data-dismiss-alert aria-label="Dismiss alert">x</button>
+                        </div>
+                    }
+                </div>
+            }
+        </article>
+
+        <aside class="panel-surface content-card metrics-panel">
+            <div class="section-heading">
+                <div>
+                    <p class="section-label">Highlights</p>
+                    <h3>Key weather metrics</h3>
+                </div>
+            </div>
+
+            <div class="metrics-grid">
+                <div class="metric-card">
+                    <span class="metric-label">Feels like</span>
+                    <strong>@(current is null ? "--" : $"{Math.Round(current.ApparentTemperatureCelsius)} C")</strong>
+                </div>
+                <div class="metric-card">
+                    <span class="metric-label">Humidity</span>
+                    <strong>@(highlights?.HumidityPercent is null ? "--" : $"{highlights.HumidityPercent}%")</strong>
+                </div>
+                <div class="metric-card">
+                    <span class="metric-label">Wind</span>
+                    <strong>@(highlights?.WindSpeedKph is null ? "--" : $"{Math.Round(highlights.WindSpeedKph.Value)} km/h {highlights.WindDirectionLabel}")</strong>
+                </div>
+                <div class="metric-card">
+                    <span class="metric-label">Pressure</span>
+                    <strong>@(highlights?.PressureHpa is null ? "--" : $"{Math.Round(highlights.PressureHpa.Value)} hPa")</strong>
+                </div>
+                <div class="metric-card">
+                    <span class="metric-label">Visibility</span>
+                    <strong>@(highlights?.VisibilityKm is null ? "--" : $"{highlights.VisibilityKm:0.#} km")</strong>
+                </div>
+                <div class="metric-card">
+                    <span class="metric-label">UV index</span>
+                    <strong>@(highlights?.UvIndex is null ? "--" : $"{highlights.UvIndex:0.#}")</strong>
+                </div>
+                <div class="metric-card metric-card-wide">
+                    <span class="metric-label">Sunrise / Sunset</span>
+                    <strong>@(highlights?.Sunrise is null ? "--" : $"{highlights.Sunrise.Value:h:mm tt}") - @(highlights?.Sunset is null ? "--" : $"{highlights.Sunset.Value:h:mm tt}")</strong>
+                </div>
+            </div>
+        </aside>
+    </section>
+
+    <section id="hourly" class="panel-surface content-card">
+        <div class="section-heading">
+            <div>
+                <p class="section-label">Hourly outlook</p>
+                <h3>Next 8 hours</h3>
+            </div>
+            <span class="pill-tag">Scroll horizontally</span>
+        </div>
+
+        <div class="hourly-strip" aria-label="Hourly forecast">
+            @foreach (var hour in hourly)
+            {
+                <article class="hour-card">
+                    <span class="hour-time">@hour.Time.ToString("htt", CultureInfo.InvariantCulture).ToLowerInvariant()</span>
+                    <span class="hour-temp">@Math.Round(hour.TemperatureCelsius) C</span>
+                    <span class="hour-condition">@hour.Condition.Description</span>
+                    <span class="hour-detail">@((hour.PrecipitationProbabilityPercent ?? 0))% rain</span>
+                    <span class="hour-detail">@($"{(hour.WindSpeedKph ?? 0):0} km/h wind")</span>
+                </article>
+            }
+        </div>
+    </section>
+
+    <section id="daily" class="panel-surface content-card">
+        <div class="section-heading">
+            <div>
+                <p class="section-label">Daily forecast</p>
+                <h3>7-day horizon</h3>
+            </div>
+            <span class="pill-tag">Week ahead</span>
+        </div>
+
+        <div class="daily-list">
+            @foreach (var day in daily)
+            {
+                <article class="daily-row">
+                    <div class="daily-main">
+                        <strong class="daily-day">@day.Date.ToString("ddd")</strong>
+                        <span class="daily-condition">@day.Condition.Description</span>
+                    </div>
+                    <div class="daily-stats">
+                        <span>@Math.Round(day.MaxTemperatureCelsius) C</span>
+                        <span>@Math.Round(day.MinTemperatureCelsius) C</span>
+                        <span>@((day.PrecipitationProbabilityMaxPercent ?? 0))% rain</span>
+                        <span>@($"{(day.WindSpeedMaxKph ?? 0):0} km/h wind")</span>
+                    </div>
+                </article>
+            }
+        </div>
+    </section>
+</div>

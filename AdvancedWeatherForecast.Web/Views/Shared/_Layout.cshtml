@@ -1,0 +1,48 @@
+﻿<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>@ViewData["Title"] - AdvancedWeatherForecast.Web</title>
+    <link rel="stylesheet" href="~/lib/bootstrap/dist/css/bootstrap.min.css" />
+    <link rel="stylesheet" href="~/css/site.css" asp-append-version="true" />
+    <link rel="stylesheet" href="~/AdvancedWeatherForecast.Web.styles.css" asp-append-version="true" />
+</head>
+<body class="app-shell">
+    <header class="app-header">
+        <nav class="navbar navbar-expand-lg navbar-dark app-nav">
+            <div class="container-fluid px-3 px-lg-4">
+                <a class="navbar-brand app-brand" asp-area="" asp-controller="Weather" asp-action="Index">
+                    <span class="brand-mark">A</span>
+                    <span class="brand-name">Aether Weather</span>
+                </a>
+                <button class="navbar-toggler app-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#appNav" aria-controls="appNav" aria-expanded="false" aria-label="Toggle navigation">
+                    <span class="navbar-toggler-icon"></span>
+                </button>
+                <div class="collapse navbar-collapse" id="appNav">
+                    <ul class="navbar-nav ms-auto align-items-lg-center gap-lg-2">
+                        <li class="nav-item"><a class="nav-link app-link" href="#current">Current</a></li>
+                        <li class="nav-item"><a class="nav-link app-link" href="#hourly">Hourly</a></li>
+                        <li class="nav-item"><a class="nav-link app-link" href="#daily">Daily</a></li>
+                    </ul>
+                </div>
+            </div>
+        </nav>
+    </header>
+
+    <main role="main" class="app-content container-fluid px-3 px-lg-4 py-4 py-lg-5">
+        @RenderBody()
+    </main>
+
+    <footer class="app-footer">
+        <div class="container-fluid px-3 px-lg-4 d-flex flex-column flex-md-row align-items-md-center justify-content-between gap-2">
+            <span>© <span data-current-year>2026</span> Aether Weather</span>
+            <span class="footer-note">Built for live conditions, hourly planning, and forecast clarity.</span>
+        </div>
+    </footer>
+
+    <script src="~/lib/bootstrap/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="~/js/site.js" asp-append-version="true"></script>
+    @await RenderSectionAsync("Scripts", required: false)
+</body>
+</html>

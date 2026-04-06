@@ -1,0 +1,333 @@
+﻿@using System.Collections
+@using System.Globalization
+@using System.Linq
+@using System.Reflection
+@model object?
+
+@{
+    ViewData["Title"] = "Weather Dashboard";
+}
+
+@functions {
+    object? ReadValue(object? source, params string[] names)
+    {
+        if (source is null)
+        {
+            return null;
+        }
+
+        var type = source.GetType();
+        foreach (var name in names)
+        {
+            var property = type.GetProperties(BindingFlags.Instance | BindingFlags.Public)
+                .FirstOrDefault(p => string.Equals(p.Name, name, StringComparison.OrdinalIgnoreCase));
+
+            if (property is null)
+            {
+                continue;
+            }
+
+            var value = property.GetValue(source);
+            if (value is not null)
+            {
+                return value;
+            }
+        }
+
+        return null;
+    }
+
+    string ReadText(object? source, string fallback, params string[] names)
+    {
+        var value = ReadValue(source, names);
+        return value is null ? fallback : Convert.ToString(value, CultureInfo.CurrentCulture) ?? fallback;
+    }
+
+    IEnumerable<object?> ReadCollection(object? source, params string[] names)
+    {
+        var value = ReadValue(source, names);
+
+        if (value is null || value is string)
+        {
+            return Enumerable.Empty<object?>();
+        }
+
+        if (value is IEnumerable enumerable)
+        {
+            return enumerable.Cast<object?>();
+        }
+
+        return Enumerable.Empty<object?>();
+    }
+}
+
+@{
+    var locationName = ReadText(Model, "Your City", "LocationName", "City", "Location");
+    var subtitle = ReadText(Model, "Track live conditions, the next hours, and the week ahead.", "Summary", "Subtitle", "Description");
+    var lastUpdated = ReadText(Model, DateTime.Now.ToString("ddd, MMM d · h:mm tt", CultureInfo.CurrentCulture), "LastUpdated", "UpdatedAt", "ObservationTime");
+
+    var temperature = ReadText(Model, "24°", "Temperature", "TemperatureText", "CurrentTemperature");
+    var condition = ReadText(Model, "Partly cloudy", "Condition", "Summary", "WeatherCondition");
+    var feelsLike = ReadText(Model, "26°", "FeelsLike", "FeelsLikeTemperature");
+    var high = ReadText(Model, "28°", "High", "HighTemperature", "MaxTemperature");
+    var low = ReadText(Model, "19°", "Low", "LowTemperature", "MinTemperature");
+    var humidity = ReadText(Model, "64%", "Humidity");
+    var wind = ReadText(Model, "12 km/h", "WindSpeed", "Wind");
+    var pressure = ReadText(Model, "1012 hPa", "Pressure");
+    var visibility = ReadText(Model, "16 km", "Visibility");
+    var uvIndex = ReadText(Model, "5", "UvIndex", "UVIndex");
+    var sunrise = ReadText(Model, "6:02 AM", "Sunrise");
+    var sunset = ReadText(Model, "7:14 PM", "Sunset");
+    var airQuality = ReadText(Model, "Moderate", "AirQuality", "AirQualityLabel");
+    var alertsTitle = ReadText(Model, "No active alerts", "AlertsTitle", "AlertTitle");
+    var alertsMessage = ReadText(Model, "Conditions look stable for the next few hours.", "AlertsMessage", "AlertMessage");
+    var errorMessage = ReadText(Model, string.Empty, "ErrorMessage", "Message", "Error");
+    var conditionIcon = ReadText(Model, "⛅", "ConditionIcon", "Icon");
+
+    var hourlyForecast = ReadCollection(Model, "HourlyForecast", "Hourly", "Hours").ToList();
+    if (!hourlyForecast.Any())
+    {
+        hourlyForecast = new List<object?>
+        {
+            new { Time = "Now", Temperature = "24°", Condition = "Sunny breaks", ChanceOfRain = "5%", WindSpeed = "11 km/h", Accent = "sun" },
+            new { Time = "1 PM", Temperature = "25°", Condition = "Bright", ChanceOfRain = "8%", WindSpeed = "12 km/h", Accent = "clear" },
+            new { Time = "2 PM", Temperature = "26°", Condition = "Warm", ChanceOfRain = "10%", WindSpeed = "14 km/h", Accent = "warm" },
+            new { Time = "3 PM", Temperature = "25°", Condition = "Clouds building", ChanceOfRain = "18%", WindSpeed = "16 km/h", Accent = "cloud" },
+            new { Time = "4 PM", Temperature = "24°", Condition = "Breezy", ChanceOfRain = "22%", WindSpeed = "17 km/h", Accent = "wind" },
+            new { Time = "5 PM", Temperature = "22°", Condition = "Light rain", ChanceOfRain = "38%", WindSpeed = "15 km/h", Accent = "rain" }
+        };
+    }
+
+    var dailyForecast = ReadCollection(Model, "DailyForecast", "Daily", "Forecast").ToList();
+    if (!dailyForecast.Any())
+    {
+        dailyForecast = new List<object?>
+        {
+            new { Day = "Today", Condition = "Partly cloudy", High = "28°", Low = "19°", ChanceOfRain = "18%", WindSpeed = "14 km/h" },
+            new { Day = "Fri", Condition = "Mostly sunny", High = "30°", Low = "20°", ChanceOfRain = "10%", WindSpeed = "12 km/h" },
+            new { Day = "Sat", Condition = "Thunder chance", High = "27°", Low = "19°", ChanceOfRain = "52%", WindSpeed = "18 km/h" },
+            new { Day = "Sun", Condition = "Fresh and clear", High = "29°", Low = "18°", ChanceOfRain = "8%", WindSpeed = "11 km/h" },
+            new { Day = "Mon", Condition = "Hazy sun", High = "31°", Low = "21°", ChanceOfRain = "12%", WindSpeed = "10 km/h" }
+        };
+    }
+
+    var alerts = ReadCollection(Model, "Alerts", "WeatherAlerts", "Notifications").ToList();
+}
+
+<div class="weather-dashboard">
+    <section class="hero-panel panel-surface">
+        <div class="hero-copy">
+            <div class="eyebrow-row">
+                <span class="eyebrow-pill">Advanced forecast</span>
+                <span class="muted-copy" data-current-time>@lastUpdated</span>
+            </div>
+
+            <h1 class="hero-title">Plan your day with a forecast that feels alive.</h1>
+            <p class="hero-summary">@subtitle</p>
+
+            <form class="search-bar" method="get" asp-controller="Home" asp-action="Index">
+                <span class="search-icon" aria-hidden="true">⌕</span>
+                <input class="search-input" type="search" name="location" placeholder="Search a city, region, or postcode" aria-label="Search location" />
+                <button class="btn btn-weather" type="submit">Search</button>
+            </form>
+
+            <div class="quick-actions" aria-label="Quick actions">
+                <button class="chip-button" type="button" data-scroll-target="#hourly">Hourly</button>
+                <button class="chip-button" type="button" data-scroll-target="#daily">Daily</button>
+                <button class="chip-button chip-button-muted" type="button">Use my location</button>
+            </div>
+        </div>
+
+        <div class="hero-weather-card">
+            <div class="hero-weather-glow"></div>
+            <div class="hero-weather-header">
+                <div>
+                    <p class="section-label mb-1">Current conditions</p>
+                    <h2 class="weather-location">@locationName</h2>
+                </div>
+                <span class="condition-badge">@condition</span>
+            </div>
+
+            <div class="weather-visual">
+                <span class="weather-icon" aria-hidden="true">@conditionIcon</span>
+                <div>
+                    <div class="temperature-value">@temperature</div>
+                    <p class="temperature-note">Feels like @feelsLike</p>
+                </div>
+            </div>
+
+            <div class="high-low-row">
+                <div>
+                    <span class="metric-label">High</span>
+                    <strong>@high</strong>
+                </div>
+                <div>
+                    <span class="metric-label">Low</span>
+                    <strong>@low</strong>
+                </div>
+                <div>
+                    <span class="metric-label">Air quality</span>
+                    <strong>@airQuality</strong>
+                </div>
+            </div>
+
+            <div class="hero-mini-grid">
+                <div class="mini-metric">
+                    <span>Humidity</span>
+                    <strong>@humidity</strong>
+                </div>
+                <div class="mini-metric">
+                    <span>Wind</span>
+                    <strong>@wind</strong>
+                </div>
+                <div class="mini-metric">
+                    <span>Pressure</span>
+                    <strong>@pressure</strong>
+                </div>
+                <div class="mini-metric">
+                    <span>Visibility</span>
+                    <strong>@visibility</strong>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <section class="section-grid">
+        <article id="current" class="panel-surface content-card">
+            <div class="section-heading">
+                <div>
+                    <p class="section-label">Forecast snapshot</p>
+                    <h3>Today at a glance</h3>
+                </div>
+                <span class="pill-tag">Updated live</span>
+            </div>
+
+            @if (!string.IsNullOrWhiteSpace(errorMessage))
+            {
+                <div class="error-state" data-dismissible="true">
+                    <div>
+                        <p class="error-title">Forecast unavailable</p>
+                        <p class="error-message">@errorMessage</p>
+                    </div>
+                    <button class="close-button" type="button" data-dismiss-alert aria-label="Dismiss error">×</button>
+                </div>
+            }
+            else if (alerts.Any())
+            {
+                <div class="alert-list">
+                    @foreach (var alert in alerts)
+                    {
+                        <div class="alert-item" data-dismissible="true">
+                            <div>
+                                <p class="alert-title">@ReadText(alert, alertsTitle, "Title", "AlertTitle", "Name")</p>
+                                <p class="alert-message">@ReadText(alert, alertsMessage, "Message", "AlertMessage", "Description")</p>
+                            </div>
+                            <button class="close-button" type="button" data-dismiss-alert aria-label="Dismiss alert">×</button>
+                        </div>
+                    }
+                </div>
+            }
+            else
+            {
+                <div class="no-alert-state">
+                    <div class="no-alert-icon">i</div>
+                    <div>
+                        <p class="alert-title">@alertsTitle</p>
+                        <p class="alert-message">@alertsMessage</p>
+                    </div>
+                </div>
+            }
+        </article>
+
+        <aside class="panel-surface content-card metrics-panel">
+            <div class="section-heading">
+                <div>
+                    <p class="section-label">Highlights</p>
+                    <h3>Key weather metrics</h3>
+                </div>
+            </div>
+
+            <div class="metrics-grid">
+                <div class="metric-card">
+                    <span class="metric-label">Feels like</span>
+                    <strong>@feelsLike</strong>
+                </div>
+                <div class="metric-card">
+                    <span class="metric-label">Humidity</span>
+                    <strong>@humidity</strong>
+                </div>
+                <div class="metric-card">
+                    <span class="metric-label">Wind</span>
+                    <strong>@wind</strong>
+                </div>
+                <div class="metric-card">
+                    <span class="metric-label">Pressure</span>
+                    <strong>@pressure</strong>
+                </div>
+                <div class="metric-card">
+                    <span class="metric-label">Visibility</span>
+                    <strong>@visibility</strong>
+                </div>
+                <div class="metric-card">
+                    <span class="metric-label">UV index</span>
+                    <strong>@uvIndex</strong>
+                </div>
+                <div class="metric-card metric-card-wide">
+                    <span class="metric-label">Sunrise / Sunset</span>
+                    <strong>@sunrise - @sunset</strong>
+                </div>
+            </div>
+        </aside>
+    </section>
+
+    <section id="hourly" class="panel-surface content-card">
+        <div class="section-heading">
+            <div>
+                <p class="section-label">Hourly outlook</p>
+                <h3>Next 24 hours</h3>
+            </div>
+            <span class="pill-tag">Swipe horizontally</span>
+        </div>
+
+        <div class="hourly-strip" aria-label="Hourly forecast">
+            @foreach (var hour in hourlyForecast)
+            {
+                <article class="hour-card">
+                    <span class="hour-time">@ReadText(hour, "Now", "Time", "Label")</span>
+                    <span class="hour-temp">@ReadText(hour, "24°", "Temperature", "Temp")</span>
+                    <span class="hour-condition">@ReadText(hour, "Clear", "Condition", "Summary")</span>
+                    <span class="hour-detail">@ReadText(hour, "8%", "ChanceOfRain", "Precipitation") rain</span>
+                    <span class="hour-detail">@ReadText(hour, "12 km/h", "WindSpeed", "Wind") wind</span>
+                </article>
+            }
+        </div>
+    </section>
+
+    <section id="daily" class="panel-surface content-card">
+        <div class="section-heading">
+            <div>
+                <p class="section-label">Daily forecast</p>
+                <h3>Upcoming days</h3>
+            </div>
+            <span class="pill-tag">7-day horizon</span>
+        </div>
+
+        <div class="daily-list">
+            @foreach (var day in dailyForecast)
+            {
+                <article class="daily-row">
+                    <div class="daily-main">
+                        <strong class="daily-day">@ReadText(day, "Today", "Day", "Label")</strong>
+                        <span class="daily-condition">@ReadText(day, "Partly cloudy", "Condition", "Summary")</span>
+                    </div>
+                    <div class="daily-stats">
+                        <span>@ReadText(day, "28°", "High", "MaxTemperature")</span>
+                        <span>@ReadText(day, "19°", "Low", "LowTemperature")</span>
+                        <span>@ReadText(day, "18%", "ChanceOfRain", "Precipitation") rain</span>
+                        <span>@ReadText(day, "12 km/h", "WindSpeed", "Wind") wind</span>
+                    </div>
+                </article>
+            }
+        </div>
+    </section>
+</div>
